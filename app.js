@@ -150,8 +150,7 @@ io.on('messages:new', function(message) {
 
                 io.emit('messages:create', message);
             }
-        }
-
+        });
     }
 
     if (validCommand) {
