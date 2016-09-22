@@ -2,6 +2,7 @@ var socketio = require('socket.io-client')
 var url = require('url')
 var schedule = require('node-schedule')
 var JiraApi = require('jira-client');
+var YouTube = require('youtube-node');
 
 
 VALID_COMMANDS = ['/code_review', '/in_qa']
@@ -19,6 +20,9 @@ LCB_HOSTNAME = process.env.LCB_HOSTNAME || 'localhost'
 LCB_PORT = process.env.LCB_PORT || 5000
 LCB_TOKEN = process.env.LCB_TOKEN || "your lcb token here"
 LCB_ROOM = process.env.LCB_ROOM || "LCB room hash"
+
+
+YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "api key here"
 
 
 chatURL = url.format({
@@ -39,6 +43,10 @@ var jira = new JiraApi({
     apiVersion: '2',
     strictSSL: true
 });
+
+
+var yt = new YouTube();
+yt.setKey(YOUTUBE_API_KEY);
 
 
 io = socketio(chatURL, {autoConnect: false}).connect()
@@ -94,6 +102,12 @@ jiraInQA = function() {
     });
 }
 
+getYoutubeVideo = function(id) {
+    if (!YOUTUBE_API_KEY) return;
+
+
+}
+
 
 // Mapping from received command to its function
 commandMapping = {
@@ -114,11 +128,31 @@ io.on('connect', function() {
 
 })
 
+var youtube_pattern = /http(?:s?):\/\/(?:www\.)?youtu(?:be\.com\/watch\?v=|\.be\/)([\w\-\_]*)(&(amp;)?‌​[\w\?‌​=]*)?/;
 
 // Respond to commands
 io.on('messages:new', function(message) {
     split = message.text.split(' ');
     validCommand = (VALID_COMMANDS.indexOf(split[0]) > -1)
+
+    validYoutube = message.match(youtube_pattern)
+
+    if (validYoutube) {
+        videoID = validYoutube[1]
+        yt.getById(videoID, function(error, result) {
+            if (error) {
+                console.log(error);
+            } else {
+                message = {
+                    room: LCB_ROOM,
+                    text: result 
+                }
+
+                io.emit('messages:create', message);
+            }
+        }
+
+    }
 
     if (validCommand) {
         command = split[0].split('/')[1]
