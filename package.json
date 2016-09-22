@@ -6,7 +6,8 @@
   "dependencies": {
     "socket.io-client": "^1.4.8",
     "url": "^0.11.0",
-	"jira-client": "^3.0.4"
+	"jira-client": "^3.0.4",
+    "node-schedule": "^1.1.0"
   },
   "scripts": {
     "test": "lolol"
