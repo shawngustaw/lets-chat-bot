@@ -1,0 +1,24 @@
+{
+  "name": "lets-chat-bot",
+  "version": "0.0.1",
+  "description": "Extensible Lets Chat Bot",
+  "main": "app.js",
+  "dependencies": {
+    "socket.io-client": "^1.4.8",
+    "url": "^0.11.0",
+	"jira-client": "^3.0.4"
+  },
+  "scripts": {
+    "test": "lolol"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shawngustaw/lets-chat-bot.git"
+  },
+  "author": "Shawn Gustaw",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shawngustaw/lets-chat-bot/issues"
+  },
+  "homepage": "https://github.com/shawngustaw/lets-chat-bot#readme"
+}
