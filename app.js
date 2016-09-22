@@ -115,11 +115,13 @@ commandMapping = {
     in_qa: jiraInQA
 }
 
+var botName;
 
 // Connect to the room
 io.on('connect', function() {
    io.emit('account:whoami', function(profile) {
        console.log("Connected to LCB bot named %s!", profile.displayName)
+       botName = profile.displayName;
    })
 
    io.emit("rooms:join", LCB_ROOM, function(room) {
@@ -128,14 +130,17 @@ io.on('connect', function() {
 
 })
 
-var youtube_pattern = /http(?:s?):\/\/(?:www\.)?youtu(?:be\.com\/watch\?v=|\.be\/)([\w\-\_]*)(&(amp;)?‌​[\w\?‌​=]*)?/;
+var youtube_pattern = /http(?:s?):\/\/(?:www\.)?youtu(?:be\.com\/watch\?v=|\.be\/)([\w\-\_]*)(&(amp;)?[\w\?=]*)?/;
 
 // Respond to commands
 io.on('messages:new', function(message) {
+    if (message.owner.displayName === botName) {
+        return;
+    }
     split = message.text.split(' ');
-    validCommand = (VALID_COMMANDS.indexOf(split[0]) > -1)
 
-    validYoutube = message.match(youtube_pattern)
+    validCommand = (VALID_COMMANDS.indexOf(split[0]) > -1)
+    validYoutube = message.text.match(youtube_pattern)
 
     if (validYoutube) {
         videoID = validYoutube[1]
@@ -143,9 +148,11 @@ io.on('messages:new', function(message) {
             if (error) {
                 console.log(error);
             } else {
+        video = result.items[0].snippet
+        text = "YOUTUBE: Title: " + video.title + " | Description: " + video.description
                 message = {
                     room: LCB_ROOM,
-                    text: result 
+                    text: text
                 }
 
                 io.emit('messages:create', message);
