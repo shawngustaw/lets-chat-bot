@@ -3,6 +3,7 @@ var url = require('url')
 var schedule = require('node-schedule')
 var JiraApi = require('jira-client');
 var YouTube = require('youtube-node');
+var Gitlab = require('gitlab');
 
 
 VALID_COMMANDS = ['/code_review', '/in_qa']
@@ -13,6 +14,13 @@ jiraConfig = {
     user: process.env.JIRA_USER || 'user@example.com',
     password: process.env.JIRA_PASSWORD || 'hunter2'
 }
+
+gitlabConfig = {
+  url:   process.env.GITLAB_URL || 'gitlab.com',
+  token: process.env.GITLAB_TOKEN || ''
+}
+
+var gitlab = Gitlab(gitlabConfig);
 
 
 LCB_PROTOCOL = process.env.LCB_PROTOCOL || 'https'
@@ -25,14 +33,8 @@ LCB_ROOM = process.env.LCB_ROOM || "LCB room hash"
 YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "api key here"
 
 
-chatURL = url.format({
-    protocol: LCB_PROTOCOL,
-    hostname: LCB_HOSTNAME,
-    port: LCB_PORT,
-    query: {
-        token: LCB_TOKEN
-    },
-})
+var yt = new YouTube();
+yt.setKey(YOUTUBE_API_KEY);
 
 
 var jira = new JiraApi({
@@ -45,35 +47,54 @@ var jira = new JiraApi({
 });
 
 
-var yt = new YouTube();
-yt.setKey(YOUTUBE_API_KEY);
+chatURL = url.format({
+    protocol: LCB_PROTOCOL,
+    hostname: LCB_HOSTNAME,
+    port: LCB_PORT,
+    query: {
+        token: LCB_TOKEN
+    },
+})
 
 
 io = socketio(chatURL, {autoConnect: false}).connect()
 
+function days_between(date1, date2) {
+    var ONE_DAY = 1000 * 60 * 60 * 24
+    var date1_ms = date1.getTime()
+    var date2_ms = date2.getTime()
+    var difference_ms = Math.abs(date1_ms - date2_ms)
+
+    // Convert back to days and return
+    return Math.round(difference_ms/ONE_DAY)
+
+}
+
 
 // Commands that can be executed or scheduled
-jiraCodeReview = function() {
-    console.log("About to query Jira for CodeReview tickets");
+gitlabCodeReview = function() {
+    gitlab.projects.merge_requests.list(33, function(mrs) {
+        if (mrs) {
+            var text = "The following merge requests are currently open: "
 
-    jira.searchJira('Status = "Code Review" AND sprint IN openSprints() AND project = "SD Elements"').then(function(response) {
-        itemIds = []
+            for (var i = 0; i < mrs.length; i++) {
+                if (!mrs[i].work_in_progress && (mrs[i].state === 'opened' || mrs[i].state === 'reopened')){
+                    text = text += "\n"
+                    text = text += "!" + mrs[i].iid;
+                    text = text += " " + mrs[i].title;
+                    text = text += ": " + mrs[i].source_branch;
+                    text = text += " || Opened " + days_between(new Date(mrs[i].created_at), new Date) + " day(s) ago"
+                }
+            }
 
-        for (var i = 0; i < response.issues.length; i++) {
-            itemIds.push("#" + response.issues[i].key)
+            message = {
+                room: LCB_ROOM,
+                text: text
+            }
+
+            io.emit('messages:create', message);
+
         }
-
-        text = "The following tasks are currently in and/or NEED code review. For the greater good of humanity, please review them: " + itemIds
-
-        message = {
-            room: LCB_ROOM,
-            text: text
-        }
-
-        io.emit('messages:create', message);
-
-    }).catch(function(err) {
-        console.log(err);
     });
 }
 
@@ -111,7 +132,7 @@ getYoutubeVideo = function(id) {
 
 // Mapping from received command to its function
 commandMapping = {
-    code_review: jiraCodeReview,
+    code_review: gitlabCodeReview,
     in_qa: jiraInQA
 }
 
@@ -132,6 +153,8 @@ io.on('connect', function() {
 
 var youtube_pattern = /http(?:s?):\/\/(?:www\.)?youtu(?:be\.com\/watch\?v=|\.be\/)([\w\-\_]*)(&(amp;)?[\w\?=]*)?/;
 
+
+
 // Respond to commands
 io.on('messages:new', function(message) {
     if (message.owner.displayName === botName) {
@@ -142,14 +165,15 @@ io.on('messages:new', function(message) {
     validCommand = (VALID_COMMANDS.indexOf(split[0]) > -1)
     validYoutube = message.text.match(youtube_pattern)
 
-    if (validYoutube) {
+    if (validYoutube) {   // TODO: throw this into a function
         videoID = validYoutube[1]
         yt.getById(videoID, function(error, result) {
             if (error) {
                 console.log(error);
             } else {
-        video = result.items[0].snippet
-        text = "YOUTUBE: Title: " + video.title + " | Description: " + video.description
+                video = result.items[0].snippet
+                text = "YOUTUBE: Title: " + video.title + " | Description: " + video.description
+
                 message = {
                     room: LCB_ROOM,
                     text: text
@@ -172,10 +196,10 @@ io.on('messages:new', function(message) {
 var rule = new schedule.RecurrenceRule();
 rule.dayOfWeek = [new schedule.Range(1, 6)]
 rule.hour = [11, 18]
-rule.minute = 4
+rule.minute = 0;
 rule.second = 0;
 
 var j = schedule.scheduleJob(rule, function() {
     console.log('Executing the job');
-    jiraCodeReview();
+    gitlabCodeReview();
 });

@@ -8,7 +8,8 @@
     "url": "^0.11.0",
 	"jira-client": "^3.0.4",
     "node-schedule": "^1.1.0",
-    "youtube-node": "^1.1.2"
+    "youtube-node": "^1.1.2",
+    "gitlab": "^1.7.0"
   },
   "scripts": {
     "test": "lolol"
